@@ -1,0 +1,48 @@
+theory Protocol1
+begin
+
+
+/* ----------------- */
+/* Equational theory */
+/* ----------------- */
+
+/* Load the built-in symmetrical encryption theory */
+builtins: symmetric-encryption
+
+/* -------------- */
+/* Share Key Setup */
+/* -------------- */
+
+rule ShareKey:  // share a key pair between two parties.
+/*FILL IN HERE*/
+
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+
+
+/*FILL IN HERE*/
+
+
+
+
+/* ---------- */
+/* Properties */
+/* ---------- */
+
+
+/* Executability check: */
+lemma executable:
+exists-trace "Ex #i #j A B ma mb.
+FinishedA(A, B, ma, mb)@i & FinishedB(B,A,ma,mb)@j& not (A=B)"
+ 
+
+
+/*FILL IN HERE*/
+
+
+end
+
+
+

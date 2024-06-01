@@ -1,0 +1,39 @@
+theory Protocol2
+begin
+
+builtins: symmetric-encryption, asymmetric-encryption
+
+/* ---------------- */
+/* Public Key Setup */
+/* ---------------- */
+
+/*FILL IN HERE*/
+
+
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+
+/*FILL IN HERE*/
+
+
+
+
+
+
+/* ---------- */
+/* Properties */
+/* ---------- */
+
+/* Executability check: */
+lemma executable:
+exists-trace   /*FILL IN HERE*/
+
+
+/* Security properties: */
+
+/*FILL IN HERE*/
+
+
+end
