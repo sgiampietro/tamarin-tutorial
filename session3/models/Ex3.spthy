@@ -1,0 +1,29 @@
+theory IKE
+begin
+
+// builtins: 
+// functions: 
+// equations: 
+
+/*
+*		RESTRICTIONS
+*/
+
+// To execute the model with this restriction, 
+// use 'tamarin-prover -D=single --proof ikeV2_template.spthy' 
+//(also works with the interactive mode)
+#ifdef single
+restriction SingleSession:
+// TODO
+#endif
+
+/*
+*		MODEL
+*/
+
+
+/*
+*		LEMMA
+*/
+
+end

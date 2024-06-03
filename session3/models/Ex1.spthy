@@ -1,0 +1,79 @@
+theory Protocol2
+begin
+
+/* ----------------- */
+/* Equational theory */
+/* ----------------- */
+
+/* Load the built-in encryption theories */
+builtins: symmetric-encryption, asymmetric-encryption, signing
+
+
+/* ---------------- */
+/* Public Key Setup */
+/* ---------------- */
+rule PubKey: 
+   [ Fr(~ska) ] 
+   --[ ]->
+   [ !SecretKey($A, ~ska),
+     !PublicKey($A, pk(~ska)), 
+     Out(<$A,pk(~ska)>) ]
+
+
+rule Compromise: 
+   [ !SecretKey($A, ~ska) ] 
+   --[ Compromised($A) ]->
+   [ Out(~ska) ]
+
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+rule AliceSends:
+   [ Fr(~ma), Fr(~kAB), !PublicKey($B, pkB), !SecretKey($A, ~ska) ] 
+   --[  ]->
+   [  Out(< $A, aenc(~kAB, pkB), senc(<~ma, sign(~ma, ~ska)>,~kAB)>),
+   AliceSent($A,~ma,$B, ~kAB) ]
+
+
+rule BobReceived:
+let kAB = adec(key, ~skb)
+    mtup = sdec(mess, kAB)
+    ma = fst(mtup)
+    masign = snd(mtup)
+in 
+   [ In(<$A, key, mess>), Fr(~mb), !SecretKey($B, ~skb), !PublicKey($A, pka) ] 
+   --[  Eq(verify(masign, ma, pka), true),
+        SecretB($B, $A, ~mb),  
+        FinishedB($B, $A,ma, ~mb)  ]->
+   [ Out(senc(~mb, kAB)) ]
+
+rule AliceReceives:
+let mb = sdec(messB, ~kAB)
+in
+[ AliceSent($A,~ma,$B, ~kAB), In(messB) ]
+--[ SecretA($A, $B, ~ma), FinishedA($A, $B, ~ma, mb)  ]->
+[]
+
+restriction Equality:
+  "All x y #i. Eq(x,y) @i ==> x = y"
+
+/* ---------- */
+/* Properties */
+/* ---------- */
+
+/* Executability check: */
+lemma executable:
+exists-trace "Ex #i #j A B ma mb.
+FinishedA(A, B, ma, mb)@i & FinishedB(B,A,ma,mb)@j& not (A=B)"
+ 
+lemma secrecyA:
+"All #i m A B.
+ SecretA(A, B, m) @ i ==> ( (not (Ex #j. K(m) @ j)) | (Ex #j. Compromised(A)@j) | (Ex #j. Compromised(B)@j))"
+
+lemma secrecyB:
+"All #i m B A. 
+SecretB(B, A, m) @ i ==>  ( (not (Ex #j. K(m) @ j)) | (Ex #j. Compromised(A)@j) | (Ex #j. Compromised(B)@j))"
+
+
+end

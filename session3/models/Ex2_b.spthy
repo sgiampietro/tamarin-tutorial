@@ -1,0 +1,109 @@
+theory Ex2_b
+begin
+
+functions: h/1
+builtins: symmetric-encryption, asymmetric-encryption 
+
+
+rule InitServerKey:
+    [ Fr(~skS) ]
+    --[ InitServerKey(~skS) ]->
+    [ !ServerKey(~skS,pk(~skS))
+    , Out(pk(~skS)) ]
+
+rule InitClientKey:
+    [ Fr(~skA) ]
+    --[ InitClientKey(~skA) ]->
+    [ !ClientKey(~skA,pk(~skA))
+    , Out(pk(~skA)) ]
+
+// Initialize Client, and send nonce1
+rule Client_M1 [color=#ffdea6]:
+    [ Fr(~nonce1), Fr(~cid)
+    , !ServerKey(~skS, pkS)
+    , !ClientKey(~skA, pk(~skA)) ]
+    -->
+    [ Client(~cid, ~skA, 'INIT', ~nonce1)
+    , Out(aenc(~nonce1, pkS)) ]
+
+// Server Receives nonce1, generates nonce2 and derives the session key
+rule Server_Rcv_M1 [color=#ffdea6]:
+    let
+        msg = aenc(~nonce1, pk(~skS))
+        session_key = h(~nonce1, ~nonce2)
+    in
+    [ !ServerKey(~skS,pk(~skS))
+    , !ClientKey(~skA,pk(~skA))
+    , Fr(~sid), Fr(~nonce2), In(msg) ]
+    -->
+    [ ServerState(~sid, session_key)
+    , Out(aenc(<~nonce1, ~nonce2>, pk(~skA))) ]
+
+// Client receives nonce2 and derives session key 
+rule Client_Rcv_M2 [color=#b5f5f7]:
+    let
+        session_key = h(~nonce1, ~nonce2)
+    in
+    [ Client(~cid, ~skA, 'INIT', ~nonce1)
+    , !ServerKey(~skS, pkS)
+    , In(aenc(<~nonce1, ~nonce2>, pk(~skA))) ]
+    --[ ClientStartSession(~cid, session_key) ]->
+    [ Client(~cid, ~skA, 'SESSION', session_key) ]
+
+
+// Client sends message
+rule Client_Send_Payload [color=#b5f5f7]:
+    let
+        message = senc(~plaintext, key)
+    in
+    [ Client(~cid, ~skA, 'SESSION', key)
+    , Fr(~plaintext) ]
+    --[ ClientSendPayload(~cid, key)
+      , ClientSend( ~cid, key) ]->
+    [ Client(~cid, ~skA, 'SESSION', key)
+    , Out(message) ]
+
+
+rule Server_Receive_Payload:
+    [ ServerState(~sid, key)
+    , In(senc(plaintext, key)) ]
+    -->
+    [ ServerState(~sid, key) ]
+
+// Client pings the server to keep the connection `alive'
+rule Client_Send_Update [color=#b5f5f7]:
+    [ Client(~cid, ~skA, 'SESSION', key) ]
+    --[ ClientSendPing( ~cid, key)
+      , ClientSend( ~cid, key) ]->
+    [ Client(~cid, ~skA, 'SESSION', key)
+    , Out(senc('Ping', key)) ]
+
+
+// Server receives ping
+rule Server_Rcv_Update [color=#b5f5f7]:
+    [ ServerState(~sid, key)
+    , In(senc('Ping', key)) ]
+    --[ ServerUpdate(~sid, key) ]->
+    [ ServerState(~sid, key) ]
+
+// CLient ends session
+rule Client_End:
+    [ Client(~cid, ~skA, 'SESSION', key) ]
+    --[ ClientEndSession(~cid, key) ]->
+    [ Client(~cid, ~skA, 'End', key)
+    , Out('End') ]
+
+
+restriction one_server:
+"All sk1 sk2 #i #j. InitServerKey(sk1) @ i & InitServerKey(sk2) @ j ==> #i = #j"
+
+restriction one_client:
+"All sk1 sk2 #i #j. InitClientKey(sk1) @ i & InitClientKey(sk2) @ j ==> #i = #j"
+
+lemma Secrecy[use_induction]:
+    "All cid key #i .
+        ClientEndSession(cid, key) @ i
+            ==> not(Ex #t. K(key) @ t)"
+
+
+end

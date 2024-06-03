@@ -1,0 +1,118 @@
+theory Ex1_solution
+begin
+
+/* ----------------- */
+/* Equational theory */
+/* ----------------- */
+
+/* Load the built-in encryption theories */
+builtins: symmetric-encryption, asymmetric-encryption, signing
+
+
+/* ---------------- */
+/* Public Key Setup */
+/* ---------------- */
+rule PubKey: 
+   [ Fr(~ska) ] 
+   --[ ]->
+   [ !SecretKey($A, ~ska),
+     !PublicKey($A, pk(~ska)), 
+     Out(<$A,pk(~ska)>) ]
+
+
+rule Compromise: 
+   [ !SecretKey($A, ~ska) ] 
+   --[ Compromised($A) ]->
+   [ Out(~ska) ]
+
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+//SOL: The fix to achieve non-ing agreement is to include Bob's identity
+//SOL: in the signature
+rule AliceSends:
+   [ Fr(~ma), Fr(~kAB), !PublicKey($B, pkB), !SecretKey($A, ~ska) ] 
+   --[ RunningA($A, $B, ~ma) ]->
+   [  Out(<$A, aenc(~kAB, pkB), senc(<~ma, sign(<~ma, $B>, ~ska)>,~kAB)>),
+   AliceSent($A,~ma,$B, ~kAB) ]
+
+
+//SOL: Include $B in signature verification
+rule BobReceived:
+let kAB = adec(key, ~skb)
+    mtup = sdec(mess, kAB)
+    ma = fst(mtup)
+    masign = snd(mtup)
+in 
+   [ In(<$A, key, mess>), Fr(~mb), !SecretKey($B, ~skb), !PublicKey($A, pka) ] 
+   --[  Eq(verify(masign, <ma, $B>, pka), true),
+        SecretB($B, $A, ~mb),  
+        FinishedB($B, $A,ma, ~mb)  ]->
+   [ Out(senc(~mb, kAB)) ]
+
+rule AliceReceives:
+// SOL: Need to do actual pattern matching, otherwise alice accepts anything.
+// SOL: Need to make `mb` fresh via `~mb`, otherwise alice accepts non _atomic_
+// terms, e.g., `<~mb, sign(...)>'
+let messB = senc(~mb, ~kAB)
+in
+[ AliceSent($A,~ma,$B, ~kAB)
+  , In(messB) ]
+--[ SecretA($A, $B, ~ma), FinishedA($A, $B, ~ma, ~mb)
+   // SOL: Need to add `Neq` restriction to avoid replay of `~ma`.
+   // SOL: This is reasonable (even in a computational setting) since Bob generates
+   // SOL: the same bitstring with only negligible probability.
+   , Neq(~ma, ~mb)  ]->
+[]
+
+restriction Equality:
+  "All x y #i. Eq(x,y) @i ==> x = y"
+
+restriction Nequality:
+  "All x y #i. Neq(x,y) @i ==> not(x = y)"
+
+/* ---------- */
+/* Properties */
+/* ---------- */
+
+/* Executability check: */
+//should verify
+lemma executable:
+exists-trace "Ex #i #j A B ma mb.
+FinishedA(A, B, ma, mb)@i & FinishedB(B,A,ma,mb)@j& not (A=B)"
+ 
+//should verify
+lemma secrecyA:
+"All #i m A B.
+ SecretA(A, B, m) @ i ==> ( (not (Ex #j. K(m) @ j)) | (Ex #j. Compromised(A)@j) | (Ex #j. Compromised(B)@j))"
+
+//should falsify
+lemma secrecyB:
+"All #i m B A. 
+SecretB(B, A, m) @ i ==>  ( (not (Ex #j. K(m) @ j)) | (Ex #j. Compromised(A)@j) | (Ex #j. Compromised(B)@j))"
+
+//SOL: should verify
+//SOL: Actually a bit more than aliveness since A and B agree on the message `ma`.
+lemma alivesness_B:
+"All #i ma mb A B.
+FinishedB(B, A, ma, mb) @ i ==> (Ex C #j. RunningA(A, C, ma) @ j) | (Ex #j. Compromised(A) @ j)"
+
+//SOL: should verify in the 'fixed' version but not in the original version
+lemma non_inj_agreement_B:
+"All #i ma mb A B.
+FinishedB(B, A, ma, mb) @ i ==> (Ex  #j. RunningA(A, B, ma) @ j) | (Ex #j. Compromised(A) @ j)"
+
+//SOL: should verify
+lemma non_inj_agreement_A:
+"All #i ma mb A B.
+FinishedA(A, B, ma, mb) @ i ==> (Ex #j. FinishedB(B, A, ma, mb) @ j) | (Ex #j. Compromised(B) @ j)"
+
+//SOL: should verify
+//SOL: Instead of writing a new authentication lemma, we can prove uniqueness
+//SOL: of `FinishedA` to get the injective agreement.
+lemma FinishedA_unique:
+"All #i #j ma mb A1 B1 A2 B2.
+FinishedA(A1, B1, ma, mb) @ i & FinishedA(A2, B2, ma, mb) @ j ==> #i = #j"
+
+end
