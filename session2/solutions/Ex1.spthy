@@ -1,0 +1,61 @@
+theory Protocol1
+begin
+
+
+/* ----------------- */
+/* Equational theory */
+/* ----------------- */
+
+/* Load the built-in symmetrical encryption theory */
+builtins: symmetric-encryption
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+
+rule ShareKey:  // share a key pair between two parties.
+   [ Fr(~kAB) ] 
+   --[  ]->
+   [ !SharedKeyAlice($A, $B, ~kAB),
+     !SharedKeyBob($B, $A, ~kAB) ]
+
+rule AliceSends:
+   [ Fr(~ma), !SharedKeyAlice($A, $B, kAB) ] 
+   --[  ]->
+   [ Out(senc(~ma, kAB)), AliceSent($A,~ma,$B, kAB) ]
+
+rule BobReceivesAndSends:
+  let ma = sdec(m, kAB) 
+  in
+   [ In(m), !SharedKeyBob($B, $A, kAB), Fr(~mb) ] 
+   --[ SecretB($B, $A, ~mb), FinishedB($B,$A,ma,~mb) ]->
+   [ Out(senc(~mb, kAB)) ]
+
+rule AliceReceives:
+   let mb = sdec(messB, kAB)
+   in
+[AliceSent($A,~ma,$B, kAB), In(messB) ]
+--[SecretA($A, $B, ~ma), FinishedA($A, $B, ~ma,mb) ]->
+[]
+
+/* ---------- */
+/* Properties */
+/* ---------- */
+
+/* Executability check: */
+lemma executable:
+exists-trace "Ex #i #j A B ma mb.
+FinishedA(A, B, ma, mb)@i & FinishedB(B,A,ma,mb)@j& not (A=B)"
+ 
+lemma secrecyA:
+"All #i m A B.
+ SecretA(A, B, m) @ i ==> not (Ex #j. K(m) @ j)"
+
+lemma secrecyB:
+"All #i m B A. 
+SecretB(B, A, m) @ i ==> not (Ex #j. K(m)@j )"
+
+end
+
+
+

@@ -1,0 +1,69 @@
+theory Protocol2
+begin
+
+/* ----------------- */
+/* Equational theory */
+/* ----------------- */
+
+/* Load the built-in encryption theories */
+builtins: symmetric-encryption, asymmetric-encryption
+
+
+/* ---------------- */
+/* Public Key Setup */
+/* ---------------- */
+rule PubKey: 
+   [ Fr(~ska) ] 
+   --[ ]->
+   [ !SecretKey($A, ~ska),
+     !PublicKey($A, pk(~ska)), 
+     Out(<$A,pk(~ska)>) ]
+
+
+/* -------------- */
+/* Protocol rules */
+/* -------------- */
+rule AliceSends:
+   [ Fr(~ma), Fr(~kAB), !PublicKey($B, pkB) ] 
+   --[  ]->
+   [  Out(< $A, aenc(~kAB, pkB), senc(~ma,~kAB)>),
+   AliceSent($A,~ma,$B, ~kAB) ]
+
+rule BobReceived:
+let kAB = adec(key, ~skb)
+    ma = sdec(mess, kAB)
+in 
+   [ In(<$A, key, mess>), Fr(~mb), !SecretKey($B, ~skb) ] 
+   --[  SecretB($B, $A, ~mb),   
+        FinishedB($B, $A,ma, ~mb) ]->
+   [ Out(senc(~mb, kAB)) ]
+
+rule AliceReceives:
+let mb = sdec(messB, ~kAB)
+in
+[AliceSent($A,~ma,$B, ~kAB), In(messB) ]
+--[SecretA($A, $B, ~ma), FinishedA($A, $B, ~ma, mb) ]->
+[]
+
+
+
+
+/* ---------- */
+/* Properties */
+/* ---------- */
+
+/* Executability check: */
+lemma executable:
+exists-trace "Ex #i #j A B ma mb.
+FinishedA(A, B, ma, mb)@i & FinishedB(B,A,ma,mb)@j& not (A=B)"
+
+
+lemma secrecyA:
+"All #i m A B.
+ SecretA(A, B, m) @ i ==> not (Ex #j. K(m) @ j)"
+
+lemma secrecyB:
+"All #i m B A. 
+SecretB(B, A, m) @ i ==> not (Ex #j. K(m)@j )"
+
+end
